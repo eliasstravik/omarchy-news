@@ -111,3 +111,8 @@ test("newKeysToNotify excludes seen and previously notified posts", () => {
   const state = { seen: { a: 1 }, notified: ["b"] }
   assert.deepEqual(Model.newKeysToNotify(state, [{ key: "a" }, { key: "b" }, { key: "c" }]), ["c"])
 })
+
+test("sha1 produces stable cache keys for ASCII and Unicode URLs", () => {
+  assert.equal(Model.sha1("abc"), "a9993e364706816aba3e25717850c26c9cd0d89d")
+  assert.equal(Model.sha1("https://omarchy.org/å.webp"), "a0d3b9e6687626f96b70860be106741a76670cd5")
+})

@@ -331,6 +331,70 @@ function newKeysToNotify(state, posts) {
   return keys
 }
 
+function sha1(value) {
+  var text = unescape(encodeURIComponent(asText(value)))
+  var words = []
+  var bitLength = text.length * 8
+  for (var i = 0; i < text.length; i++) words[i >> 2] = (words[i >> 2] || 0) | text.charCodeAt(i) << (24 - (i % 4) * 8)
+  words[bitLength >> 5] = (words[bitLength >> 5] || 0) | 0x80 << (24 - bitLength % 32)
+  words[((bitLength + 64 >> 9) << 4) + 15] = bitLength
+
+  function rotate(value, bits) {
+    return value << bits | value >>> (32 - bits)
+  }
+
+  function hex(value) {
+    var result = ""
+    for (var offset = 28; offset >= 0; offset -= 4) result += ((value >>> offset) & 15).toString(16)
+    return result
+  }
+
+  var h0 = 0x67452301
+  var h1 = 0xefcdab89
+  var h2 = 0x98badcfe
+  var h3 = 0x10325476
+  var h4 = 0xc3d2e1f0
+  for (var block = 0; block < words.length; block += 16) {
+    var schedule = []
+    for (var j = 0; j < 16; j++) schedule[j] = words[block + j] || 0
+    for (var k = 16; k < 80; k++) schedule[k] = rotate(schedule[k - 3] ^ schedule[k - 8] ^ schedule[k - 14] ^ schedule[k - 16], 1)
+    var a = h0
+    var b = h1
+    var c = h2
+    var d = h3
+    var e = h4
+    for (var round = 0; round < 80; round++) {
+      var f
+      var constant
+      if (round < 20) {
+        f = b & c | ~b & d
+        constant = 0x5a827999
+      } else if (round < 40) {
+        f = b ^ c ^ d
+        constant = 0x6ed9eba1
+      } else if (round < 60) {
+        f = b & c | b & d | c & d
+        constant = 0x8f1bbcdc
+      } else {
+        f = b ^ c ^ d
+        constant = 0xca62c1d6
+      }
+      var next = (rotate(a, 5) + f + e + constant + schedule[round]) | 0
+      e = d
+      d = c
+      c = rotate(b, 30)
+      b = a
+      a = next
+    }
+    h0 = h0 + a | 0
+    h1 = h1 + b | 0
+    h2 = h2 + c | 0
+    h3 = h3 + d | 0
+    h4 = h4 + e | 0
+  }
+  return hex(h0) + hex(h1) + hex(h2) + hex(h3) + hex(h4)
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     parseFeed: parseFeed,
@@ -343,6 +407,7 @@ if (typeof module !== "undefined") {
     isSafeHttpUrl: isSafeHttpUrl,
     validateState: validateState,
     mergeFetched: mergeFetched,
-    newKeysToNotify: newKeysToNotify
+    newKeysToNotify: newKeysToNotify,
+    sha1: sha1
   }
 }
