@@ -17,7 +17,6 @@ Panel {
   property var unseenKeysAtOpen: []
   property int cursorIndex: 0
   property bool cursorActive: false
-  property string copiedKey: ""
   property bool helpOpen: false
   property var undoReadMap: null
   property int undoCount: 0
@@ -94,14 +93,6 @@ Panel {
     if (closePanel) close()
   }
 
-  function copySelectedLink() {
-    var post = selectedPost()
-    if (!post || !Model.isSafeHttpUrl(post.link)) return
-    Quickshell.execDetached(["wl-copy", String(post.link)])
-    copiedKey = String(post.key || "")
-    copyTimer.restart()
-  }
-
   function toggleSelectedRead() {
     var post = selectedPost()
     if (post && feed) feed.toggleRead(post.key)
@@ -148,14 +139,12 @@ Panel {
       if (text === "n") moveReaderPost(1)
       else if (text === "p") moveReaderPost(-1)
       else if (text === "o") openSelectedInBrowser(false)
-      else if (text === "c") copySelectedLink()
       else if (text === "g") readerPage.scrollToTop()
       else if (text === "G") readerPage.scrollToBottom()
       return
     }
     if (text === "m") toggleSelectedRead()
     else if (text === "o") openSelectedInBrowser(true)
-    else if (text === "c") copySelectedLink()
     else if (text === "A") markAllWithUndo()
     else if (text === "u") undoMarkAll()
     else if (text === "r") refreshFeed()
@@ -208,7 +197,6 @@ Panel {
     if (!opened) {
       unseenKeysAtOpen = []
       cursorActive = false
-      copiedKey = ""
       helpOpen = false
       currentPost = null
       discardUndo()
@@ -234,12 +222,6 @@ Panel {
         root.cursorActive = false
       } else root.cursorIndex = Math.min(root.cursorIndex, root.feed.posts.length - 1)
     }
-  }
-
-  Timer {
-    id: copyTimer
-    interval: 1500
-    onTriggered: root.copiedKey = ""
   }
 
   Shortcut {
@@ -385,7 +367,6 @@ Panel {
           unseenKeys: root.unseenKeysAtOpen
           cursorIndex: root.cursorIndex
           cursorActive: root.cursorActive
-          copiedKey: root.copiedKey
           helpOpen: root.helpOpen
           undoVisible: root.undoReadMap !== null
           undoCount: root.undoCount
@@ -419,8 +400,6 @@ Panel {
           fontFamily: root.fontFamily
           onBackRequested: root.closeReader()
           onOpenUrlRequested: function(url) { root.openSafeUrl(url) }
-          onCopyRequested: root.copySelectedLink()
-
           Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
           Behavior on opacity { NumberAnimation { duration: 160 } }
         }

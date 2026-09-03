@@ -20,7 +20,6 @@ Item {
 
   signal backRequested()
   signal openUrlRequested(string url)
-  signal copyRequested()
 
   readonly property color dim: Util.alpha(foreground, 0.55)
   readonly property var blocks: post ? Model.htmlToBlocks(String(post.contentHtml || "")) : []
@@ -341,7 +340,7 @@ Item {
     Text {
       id: footer
       width: parent.width
-      text: "Backspace back · o browser · c copy · n/p next/prev"
+      text: "Backspace back · o browser · n/p next/prev"
       textFormat: Text.PlainText
       horizontalAlignment: Text.AlignHCenter
       color: root.dim

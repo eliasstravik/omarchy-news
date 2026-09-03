@@ -42,7 +42,6 @@ o.bind("SUPER + CTRL + N", "Omarchy News", "omarchy-shell shell toggle io.github
 | `j`, `k`, Down, Up | Reveal and move the post cursor. |
 | Enter, Space, `l`, Right | Open the selected post in the reader. |
 | `o` | Open the selected post in the browser and close the panel. |
-| `c` | Copy the selected post link. |
 | `x`, `m` | Toggle the selected post's read state. |
 | `A` | Mark every post as read and show the five-second undo strip. |
 | `u` | Undo the pending mark-all action. |
@@ -62,7 +61,6 @@ o.bind("SUPER + CTRL + N", "Omarchy News", "omarchy-shell shell toggle io.github
 | `g`, `G` | Scroll to the top or bottom. |
 | `n`, `p` | Open the next or previous post. |
 | `o` | Open the post in the browser and keep the panel open. |
-| `c` | Copy the post link. |
 | Click an article link | Open that safe HTTP or HTTPS link in the browser. |
 
 ## Settings
@@ -102,7 +100,6 @@ Every process receives an argument vector directly. The plugin does not construc
 - Preserves invalid state with `mv <state-file> <dated-corrupt-file>`.
 - Sends notices through `omarchy-notification-send`, with the app name `Omarchy News`, normal urgency for new posts, an optional cached image, and a fixed `omarchy-shell shell summon io.github.eliasstravik.omarchy-news {}` click action.
 - Opens checked HTTP or HTTPS links with `omarchy-launch-browser <url>`.
-- Copies a link with `wl-copy <url>`.
 
 ## Data and privacy
 
@@ -121,7 +118,7 @@ The first command removes the plugin. The second removes its feed cache, cached 
 
 ## Reader and light theme
 
-![An Omarchy News article with a cached image](docs/preview-reader.png)
+![The Omarchy News article reader](docs/preview-reader.png)
 
 ![Omarchy News using the White theme](docs/preview-light.png)
 

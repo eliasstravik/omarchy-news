@@ -10,7 +10,6 @@ CursorSurface {
 
   required property var post
   property bool unread: true
-  property bool copied: false
   property color textColor: Color.foreground
   property color accentColor: Color.accent
   property string textFontFamily: Style.font.family
@@ -91,9 +90,9 @@ CursorSurface {
       id: trailing
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
-      text: root.copied ? "󰄬" : "󰅂"
+      text: "󰅂"
       textFormat: Text.PlainText
-      color: root.copied ? root.accentColor : root.dim
+      color: root.dim
       font.family: root.textFontFamily
       font.pixelSize: Style.font.icon
     }

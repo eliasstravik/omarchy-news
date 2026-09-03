@@ -14,7 +14,6 @@ Item {
   property var unseenKeys: []
   property int cursorIndex: 0
   property bool cursorActive: false
-  property string copiedKey: ""
   property bool helpOpen: false
   property bool undoVisible: false
   property int undoCount: 0
@@ -37,7 +36,6 @@ Item {
     { key: "j / k  or  ↑ / ↓", action: "Move through posts" },
     { key: "Enter / Space / l / →", action: "Read the selected post" },
     { key: "o", action: "Open in the browser" },
-    { key: "c", action: "Copy the post link" },
     { key: "x / m", action: "Toggle read" },
     { key: "A", action: "Mark every post read" },
     { key: "u", action: "Undo mark all" },
@@ -248,7 +246,6 @@ Item {
             required property var modelData
             post: modelData.post
             unread: root.isUnread(post)
-            copied: root.copiedKey === String(post.key || "")
             hasCursor: root.cursorActive && root.cursorIndex === modelData.index
             textColor: root.foreground
             accentColor: root.accent
@@ -275,7 +272,6 @@ Item {
             required property var modelData
             post: modelData.post
             unread: root.isUnread(post)
-            copied: root.copiedKey === String(post.key || "")
             hasCursor: root.cursorActive && root.cursorIndex === modelData.index
             textColor: root.foreground
             accentColor: root.accent
@@ -302,7 +298,6 @@ Item {
             required property int index
             post: modelData
             unread: root.isUnread(post)
-            copied: root.copiedKey === String(post.key || "")
             hasCursor: root.cursorActive && root.cursorIndex === index
             textColor: root.foreground
             accentColor: root.accent
