@@ -2,11 +2,9 @@
 
 Every Omarchy announcement, read from the bar the moment it drops.
 
-![Omarchy News open below the bar](preview.png)
+![Opening Omarchy News from the bar, moving through the list, and reading two posts](docs/news-tour.gif)
 
 Omarchy News watches the official `omarchy.org/news` feed. It adds an unseen-post dot to the bar, a keyboard-first list, and a typeset reader that keeps the full article and its images inside the panel.
-
-![Opening Omarchy News from the bar, moving through the list, and reading two posts](docs/news-tour.gif)
 
 ## Features
 
