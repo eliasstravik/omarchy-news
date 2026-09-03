@@ -193,6 +193,7 @@ Item {
           model: root.helpRows
 
           Item {
+            id: helpRow
             required property var modelData
             width: parent ? parent.width : 0
             implicitHeight: Math.max(keyText.implicitHeight, actionText.implicitHeight) + Style.space(8)
@@ -202,7 +203,7 @@ Item {
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
               width: parent.width * 0.44
-              text: String(modelData.key)
+              text: String(helpRow.modelData.key)
               textFormat: Text.PlainText
               color: root.foreground
               font.family: root.fontFamily
@@ -216,7 +217,7 @@ Item {
               anchors.left: keyText.right
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              text: String(modelData.action)
+              text: String(helpRow.modelData.action)
               textFormat: Text.PlainText
               color: root.dim
               font.family: root.fontFamily

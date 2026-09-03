@@ -227,6 +227,7 @@ Item {
                 model: list.visible && Array.isArray(blockDelegate.modelData.items) ? blockDelegate.modelData.items : []
 
                 Item {
+                  id: listRow
                   required property var modelData
                   required property int index
                   width: parent ? parent.width : 0
@@ -237,7 +238,7 @@ Item {
                     anchors.left: parent.left
                     anchors.top: parent.top
                     width: Style.space(24)
-                    text: blockDelegate.modelData.type === "ol" ? (index + 1) + "." : "•"
+                    text: blockDelegate.modelData.type === "ol" ? (listRow.index + 1) + "." : "•"
                     textFormat: Text.PlainText
                     color: root.accent
                     font.family: root.fontFamily
@@ -248,7 +249,7 @@ Item {
                     id: listText
                     anchors.left: marker.right
                     anchors.right: parent.right
-                    text: root.safeInline(modelData)
+                    text: root.safeInline(listRow.modelData)
                     textFormat: Text.StyledText
                     color: root.foreground
                     linkColor: root.accent

@@ -20,6 +20,8 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 [[ $QML_SOURCE == *'feed.imagePath'* ]] || fail "reader images must load from the local image cache"
 [[ $QML_SOURCE == *'["wl-copy", String(post.link)]'* ]] || fail "copy must pass the URL as one argv value"
 [[ $QML_SOURCE == *'Easing.OutCubic'* ]] || fail "the list-to-reader page turn must use the approved easing"
+[[ $QML_SOURCE == *'"omarchy-notification-send", "--app-name", "Omarchy News", "-u", "normal"'* ]] || fail "new-post notices must use the Omarchy notification helper"
+[[ $QML_SOURCE == *'"--exec", "omarchy-shell", "shell", "summon", "io.github.eliasstravik.omarchy-news", "{}"'* ]] || fail "notification clicks must summon the panel with fixed argv"
 
 while IFS= read -r command; do
   [[ $command =~ command:[[:space:]]*\[ ]] || fail "Process.command must use an argv array: $command"

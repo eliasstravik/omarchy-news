@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -243,12 +245,14 @@ Panel {
   Shortcut {
     enabled: root.opened && root.reading
     sequence: "Backspace"
+    context: Qt.ApplicationShortcut
     onActivated: root.closeReader()
   }
 
   Shortcut {
     enabled: root.opened && root.reading
     sequence: "Shift+Space"
+    context: Qt.ApplicationShortcut
     onActivated: readerPage.pageBy(-1)
   }
 

@@ -33,6 +33,8 @@ Item {
   property var imageQueue: []
   property string currentImageUrl: ""
   property string currentImagePath: ""
+  property var pendingNotificationKeys: []
+  property var pendingNotificationPost: null
 
   readonly property string feedUrl: "https://omarchy.org/news/rss.xml"
   readonly property string homeDir: Quickshell.env("HOME")
@@ -153,6 +155,7 @@ Item {
         return
       }
       var firstRun = !stateFileExisted
+      var newKeys = firstRun ? [] : Model.newKeysToNotify(persisted, parsed)
       posts = parsed
       postsReplaced()
       persisted = Model.mergeFetched(persisted, posts, firstRun, nowSeconds())
@@ -163,6 +166,7 @@ Item {
       fetching = false
       scheduleStateSave()
       persistFeedCache()
+      prepareNotification(newKeys)
       queuePostImages()
       return
     }
@@ -327,6 +331,59 @@ Item {
     return availableImages[value] ? "file://" + String(availableImages[value]) : ""
   }
 
+  function notificationText(value, fallback) {
+    var text = String(value || fallback || "")
+    return text.charAt(0) === "-" ? " " + text : text
+  }
+
+  function prepareNotification(keys) {
+    var values = Array.isArray(keys) ? keys : []
+    if (values.length === 0) return
+    var next = clone(persisted)
+    var known = {}
+    for (var i = 0; i < next.notified.length; i++) known[next.notified[i]] = true
+    for (var j = 0; j < values.length; j++) {
+      var key = String(values[j] || "")
+      if (key !== "" && !known[key]) {
+        next.notified.push(key)
+        known[key] = true
+      }
+    }
+    next.notified = next.notified.slice(-200)
+    persisted = next
+    scheduleStateSave()
+    if (!notifyEnabled) return
+
+    pendingNotificationKeys = values.slice()
+    pendingNotificationPost = null
+    for (var postIndex = 0; postIndex < posts.length; postIndex++) {
+      if (values.indexOf(String(posts[postIndex].key || "")) >= 0) {
+        pendingNotificationPost = posts[postIndex]
+        break
+      }
+    }
+    Qt.callLater(maybeSendNotification)
+  }
+
+  function maybeSendNotification() {
+    if (!pendingNotificationPost || pendingNotificationKeys.length === 0) return
+    var post = pendingNotificationPost
+    var imageUrl = Model.firstImage(post.imageUrls)
+    if (imageUrl !== "" && !availableImages[imageUrl]
+        && (currentImageUrl === imageUrl || imageQueue.indexOf(imageUrl) >= 0)) return
+
+    var command = ["omarchy-notification-send", "--app-name", "Omarchy News", "-u", "normal", "-g", "󰑫"]
+    if (imageUrl !== "" && availableImages[imageUrl]) command.push("--image", String(availableImages[imageUrl]))
+    var body = pendingNotificationKeys.length === 1
+      ? notificationText(post.summary, "A new Omarchy News post is ready.")
+      : "and " + (pendingNotificationKeys.length - 1) + " more Omarchy News posts"
+    command.push(notificationText(post.title, "New Omarchy News post"), body,
+      "--exec", "omarchy-shell", "shell", "summon", "io.github.eliasstravik.omarchy-news", "{}")
+    pendingNotificationKeys = []
+    pendingNotificationPost = null
+    Quickshell.execDetached(command)
+  }
+
   function queuePostImages() {
     var pending = imageQueue.slice()
     var known = {}
@@ -365,7 +422,10 @@ Item {
   function finishCurrentImage() {
     currentImageUrl = ""
     currentImagePath = ""
-    Qt.callLater(root.startNextImage)
+    Qt.callLater(function() {
+      root.startNextImage()
+      root.maybeSendNotification()
+    })
   }
 
   Timer {
