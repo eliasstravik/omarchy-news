@@ -40,12 +40,17 @@ CursorSurface {
     Item {
       id: unreadSlot
       anchors.left: parent.left
-      anchors.verticalCenter: parent.verticalCenter
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
       width: Style.space(12)
-      height: parent.height
 
+      // Centre the dot on the first line of the title, not on the row, so a
+      // two-line row keeps the dot beside the headline rather than floating
+      // between the title and the byline.
       Rectangle {
-        anchors.centerIn: parent
+        id: unreadDot
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: labels.y + titleText.y + titleText.height / Math.max(1, titleText.lineCount) / 2 - height / 2
         width: Style.space(8)
         height: width
         radius: width / 2
@@ -57,12 +62,14 @@ CursorSurface {
     Column {
       id: labels
       anchors.left: unreadSlot.right
+      anchors.leftMargin: Style.space(6)
       anchors.right: trailing.left
       anchors.rightMargin: Style.space(8)
       anchors.verticalCenter: parent.verticalCenter
       spacing: Style.space(2)
 
       Text {
+        id: titleText
         width: parent.width
         text: String(root.post.title || "")
         textFormat: Text.PlainText

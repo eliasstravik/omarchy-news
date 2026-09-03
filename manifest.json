@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.eliasstravik.omarchy-news",
   "name": "Omarchy News",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Elias Stravik",
   "license": "MIT",
   "description": "Every Omarchy announcement, read from the bar the moment it drops.",

@@ -100,7 +100,7 @@ Item {
     return [
       "curl", "-fsSL", "--proto", "=https", "--max-time", "15",
       "--max-filesize", "2097152", "--max-redirs", "2",
-      "-A", "omarchy-news/0.1.0", "--etag-compare", etagPath,
+      "-A", "omarchy-news/0.1.1", "--etag-compare", etagPath,
       "--etag-save", etagPath, feedUrl
     ]
   }
