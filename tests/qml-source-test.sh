@@ -16,6 +16,10 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 [[ $QML_SOURCE == *'atomicWrites: true'* ]] || fail "state and cache writes must be atomic"
 [[ $QML_SOURCE == *'bar.shell.serviceFor(moduleName)'* ]] || fail "bar widgets must share the singleton service"
 [[ $QML_SOURCE == *'visible: root.unseenCount > 0'* ]] || fail "the bar dot must follow unseen posts"
+[[ $QML_SOURCE == *'Model.sanitizeInline'* ]] || fail "reader HTML must pass through the inline sanitizer"
+[[ $QML_SOURCE == *'feed.imagePath'* ]] || fail "reader images must load from the local image cache"
+[[ $QML_SOURCE == *'["wl-copy", String(post.link)]'* ]] || fail "copy must pass the URL as one argv value"
+[[ $QML_SOURCE == *'Easing.OutCubic'* ]] || fail "the list-to-reader page turn must use the approved easing"
 
 while IFS= read -r command; do
   [[ $command =~ command:[[:space:]]*\[ ]] || fail "Process.command must use an argv array: $command"
