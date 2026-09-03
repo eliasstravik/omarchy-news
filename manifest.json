@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.eliasstravik.omarchy-news",
+  "name": "Omarchy News",
+  "version": "0.1.0",
+  "author": "Elias Stravik",
+  "license": "MIT",
+  "description": "Every Omarchy announcement, read from the bar the moment it drops.",
+  "kinds": ["service", "bar-widget"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Omarchy News",
+    "description": "Unread dot, post list, and an in-panel reader for omarchy.org/news.",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshMinutes": 30,
+      "notify": true,
+      "maxPosts": 40
+    },
+    "schema": [
+      {
+        "key": "refreshMinutes",
+        "type": "integer",
+        "label": "Refresh interval (minutes)",
+        "min": 5,
+        "max": 1440,
+        "step": 5,
+        "defaultValue": 30
+      },
+      {
+        "key": "notify",
+        "type": "boolean",
+        "label": "Notify on new posts",
+        "defaultValue": true
+      },
+      {
+        "key": "maxPosts",
+        "type": "integer",
+        "label": "Posts to keep",
+        "min": 10,
+        "max": 100,
+        "step": 10,
+        "defaultValue": 40
+      }
+    ]
+  }
+}
