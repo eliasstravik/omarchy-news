@@ -1,0 +1,323 @@
+#!/bin/bash
+
+# Omarchy News setup. Asks its one question up front, then runs unattended:
+# it enables the plugin, adds the keybinding you accepted after a timestamped
+# backup, and checks that the service answers. Details go to
+# ~/.local/state/omarchy-news/setup.log.
+#
+#   --yes               accept the keybinding without asking (unattended runs)
+#   --skip-keybinding   leave ~/.config/hypr/bindings.lua alone
+#
+# The script never elevates privileges, never downloads anything, and never
+# edits a configuration file without a typed yes or an explicit --yes.
+
+set -euo pipefail
+
+PLUGIN_ID="io.github.eliasstravik.omarchy-news"
+BINDINGS_PATH="$HOME/.config/hypr/bindings.lua"
+STATE_DIR="$HOME/.local/state/omarchy-news"
+LOG_PATH="$STATE_DIR/setup.log"
+KEY="SUPER + ALT + N"
+TOGGLE_COMMAND="omarchy-shell shell toggle $PLUGIN_ID"
+BINDING="o.bind(\"$KEY\", \"Omarchy News\", \"$TOGGLE_COMMAND\")"
+
+ASSUME_YES=false
+SKIP_KEYBINDING=false
+for argument in "$@"; do
+  case $argument in
+    -y|--yes) ASSUME_YES=true ;;
+    --skip-keybinding) SKIP_KEYBINDING=true ;;
+    -h|--help)
+      echo "Usage: omarchy-news-setup [--yes] [--skip-keybinding]"
+      echo "  --yes              accept the $KEY keybinding without asking"
+      echo "  --skip-keybinding  never touch $BINDINGS_PATH"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $argument (try --help)" >&2
+      exit 64
+      ;;
+  esac
+done
+
+# Styling only when stdout is an interactive terminal and NO_COLOR is unset.
+if [[ -t 1 && -z ${NO_COLOR:-} ]] && tput sgr0 >/dev/null 2>&1; then
+  BOLD=$(tput bold 2>/dev/null || true)
+  DIM=$(tput dim 2>/dev/null || true)
+  RED=$(tput setaf 1 2>/dev/null || true)
+  GREEN=$(tput setaf 2 2>/dev/null || true)
+  YELLOW=$(tput setaf 3 2>/dev/null || true)
+  RESET=$(tput sgr0 2>/dev/null || true)
+else
+  BOLD="" DIM="" RED="" GREEN="" YELLOW="" RESET=""
+fi
+OK="${GREEN}✓${RESET}"
+BAD="${RED}✗${RESET}"
+WARN="${YELLOW}!${RESET}"
+
+TOTAL_PHASES=3
+phase() { printf '\n%s[%s/%s]%s %s\n' "$BOLD" "$1" "$TOTAL_PHASES" "$RESET" "$2"; }
+note() { printf '  %s\n' "$1"; }
+rule() { printf '%s\n' "──────────────────────────────────────────────────────"; }
+
+die() {
+  printf '%s %s\n' "$BAD" "$1" >&2
+  exit 1
+}
+
+# Subprocess chatter goes to the log; the terminal keeps one line per step.
+# On failure the log tail comes back, so nothing is ever hidden.
+run_logged() {
+  local description=$1
+  shift
+  printf '  %s·%s %s\n' "$DIM" "$RESET" "$description"
+  if "$@" >>"$LOG_PATH" 2>&1; then
+    return 0
+  fi
+  local code=$?
+  printf '%s %s failed (exit %s). Last lines of %s:\n' "$BAD" "$description" "$code" "$LOG_PATH" >&2
+  tail -n 20 "$LOG_PATH" >&2
+  exit "$code"
+}
+
+# A typed y, or --yes, is consent. An empty answer takes the default only on a
+# real terminal; when stdin is a pipe or closed, only a literal yes accepts, so
+# an unattended run can never change configuration by accident.
+CONFIRM_EOF=false
+confirm() {
+  local question=$1 default=${2:-n} suffix answer=""
+  if [[ $ASSUME_YES == true ]]; then return 0; fi
+  suffix='[y/N]'
+  [[ $default == y ]] && suffix='[Y/n]'
+  printf '%s %s ' "$question" "$suffix"
+  if ! read -r answer; then
+    CONFIRM_EOF=true
+    echo
+    return 1
+  fi
+  if [[ -z $answer ]]; then
+    [[ -t 0 && $default == y ]]
+    return
+  fi
+  [[ $answer == [yY] || $answer == [yY][eE][sS] ]]
+}
+
+# ---------------------------------------------------------------- Preflight
+
+printf '%sOmarchy News setup%s\n' "$BOLD" "$RESET"
+mkdir -p "$STATE_DIR"
+printf '── omarchy-news-setup %s ──\n' "$(date '+%Y-%m-%d %H:%M:%S')" >>"$LOG_PATH"
+
+echo
+echo "Preflight:"
+MISSING_REQUIRED=false
+need_command() {
+  if command -v "$1" >/dev/null 2>&1; then
+    printf '  %s %s\n' "$OK" "$1"
+  else
+    printf '  %s %s (required, not found)\n' "$BAD" "$1"
+    MISSING_REQUIRED=true
+  fi
+}
+need_command omarchy
+need_command omarchy-shell
+need_command jq
+if [[ $MISSING_REQUIRED == true ]]; then
+  die "Install the missing commands above, then run omarchy-news-setup again."
+fi
+
+if [[ $(omarchy-shell shell ping 2>>"$LOG_PATH" || true) != "ok" ]]; then
+  die "omarchy-shell is not answering. Start your Omarchy session (or run: omarchy restart shell), then try again."
+fi
+printf '  %s omarchy-shell is running\n' "$OK"
+
+# hyprctl is optional: it lets setup check the key is free and validate the
+# config after writing. Without it (no session, SSH) those two steps are skipped.
+HAVE_HYPRCTL=false
+if command -v hyprctl >/dev/null 2>&1 && [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+  HAVE_HYPRCTL=true
+fi
+
+# The plugin folder may have been dropped in by hand, so ask the shell to look
+# again before deciding it is missing. Discovery is asynchronous; wait briefly.
+omarchy-shell -q shell rescanPlugins >>"$LOG_PATH" 2>&1 || true
+plugin_json=""
+for (( attempt = 0; attempt < 40; attempt++ )); do
+  plugin_json=$(omarchy plugin list --json 2>>"$LOG_PATH" \
+    | jq -c --arg id "$PLUGIN_ID" '.[] | select(.id == $id)' 2>>"$LOG_PATH" || true)
+  [[ -n $plugin_json ]] && break
+  sleep 0.05
+done
+if [[ -z $plugin_json ]]; then
+  die "Omarchy News is not installed. Run: omarchy plugin add https://github.com/eliasstravik/omarchy-news --enable"
+fi
+PLUGIN_ENABLED=false
+if jq -e '.enabled == true' <<<"$plugin_json" >/dev/null 2>&1; then
+  PLUGIN_ENABLED=true
+  printf '  %s plugin discovered and enabled\n' "$OK"
+else
+  printf '  %s plugin discovered (not enabled yet)\n' "$OK"
+fi
+
+# ---------------------------------------------------------------- Decisions
+
+# Values: apply | skip-requested | skip-declined | skip-no-terminal | present | no-file
+KEYBINDING_PLAN="skip-requested"
+KEY_CONFLICT=""
+if [[ ! -f $BINDINGS_PATH ]]; then
+  KEYBINDING_PLAN="no-file"
+elif grep -Fq "$TOGGLE_COMMAND\")" "$BINDINGS_PATH"; then
+  KEYBINDING_PLAN="present"
+elif [[ $SKIP_KEYBINDING == true ]]; then
+  KEYBINDING_PLAN="skip-requested"
+else
+  if [[ $HAVE_HYPRCTL == true ]]; then
+    # SUPER (64) + ALT (8) = 72. Hyprland reports the key in its own case.
+    KEY_CONFLICT=$(hyprctl binds -j 2>>"$LOG_PATH" \
+      | jq -r '.[] | select(.modmask == 72 and (.key | ascii_downcase) == "n") | .description' 2>>"$LOG_PATH" \
+      | head -n 1 || true)
+  elif grep -Fq "\"$KEY\"" "$BINDINGS_PATH"; then
+    KEY_CONFLICT="another binding in $BINDINGS_PATH"
+  fi
+fi
+
+echo
+echo "This run will:"
+if [[ $PLUGIN_ENABLED == true ]]; then
+  note "• keep the Omarchy News service and bar widget enabled"
+else
+  note "• enable the Omarchy News service and bar widget"
+fi
+case $KEYBINDING_PLAN in
+  present) note "• leave your existing Omarchy News keybinding as it is" ;;
+  no-file) note "• skip the keybinding ($BINDINGS_PATH does not exist)" ;;
+  skip-requested)
+    if [[ $SKIP_KEYBINDING == true ]]; then
+      note "• leave $BINDINGS_PATH alone (--skip-keybinding)"
+    else
+      note "• offer one keybinding for $BINDINGS_PATH (asked below; timestamped backup first)"
+    fi
+    ;;
+esac
+note "• check that the news service answers"
+note "• log details to $LOG_PATH"
+
+if [[ $KEYBINDING_PLAN == "skip-requested" && $SKIP_KEYBINDING == false ]]; then
+  echo
+  echo "Keybinding:"
+  echo "  $BINDING"
+  echo "  Press $KEY to open or close Omarchy News from anywhere."
+  default_answer=y
+  if [[ -n $KEY_CONFLICT ]]; then
+    printf '%s %s is already bound: %s. Adding it again would conflict.\n' "$WARN" "$KEY" "$KEY_CONFLICT"
+    default_answer=n
+  fi
+  if confirm "Add this binding to $BINDINGS_PATH? (timestamped backup first)" "$default_answer"; then
+    KEYBINDING_PLAN="apply"
+  elif [[ $CONFIRM_EOF == true ]]; then
+    KEYBINDING_PLAN="skip-no-terminal"
+  else
+    KEYBINDING_PLAN="skip-declined"
+  fi
+fi
+
+# --------------------------------------------------------------- Unattended
+
+phase 1 "Enabling the plugin"
+if [[ $PLUGIN_ENABLED == true ]]; then
+  note "· already enabled"
+else
+  run_logged "omarchy plugin enable $PLUGIN_ID" omarchy plugin enable "$PLUGIN_ID"
+  PLUGIN_ENABLED=true
+fi
+
+phase 2 "Keybinding"
+KEYBINDING_RESULT=""   # applied | rolled-back | (empty when nothing was written)
+BACKUP_PATH=""
+if [[ $KEYBINDING_PLAN == "apply" ]]; then
+  BACKUP_PATH="$BINDINGS_PATH.$(date +%Y%m%d-%H%M%S).bak"
+  cp "$BINDINGS_PATH" "$BACKUP_PATH"
+  printf '\n%s\n' "$BINDING" >>"$BINDINGS_PATH"
+  KEYBINDING_RESULT="applied"
+  if [[ $HAVE_HYPRCTL == true ]]; then
+    # Hyprland reloads on save; ask explicitly so the error check is current.
+    hyprctl reload >>"$LOG_PATH" 2>&1 || true
+    config_errors=$(hyprctl configerrors 2>>"$LOG_PATH" | tr -d '[:space:]' || true)
+    if [[ -n $config_errors ]]; then
+      hyprctl configerrors >>"$LOG_PATH" 2>&1 || true
+      cp "$BACKUP_PATH" "$BINDINGS_PATH"
+      hyprctl reload >>"$LOG_PATH" 2>&1 || true
+      KEYBINDING_RESULT="rolled-back"
+      printf '%s Hyprland rejected the new binding, so %s was restored from its backup.\n' "$BAD" "$BINDINGS_PATH" >&2
+      note "  Details: $LOG_PATH"
+    else
+      note "· added $BINDING"
+      note "  (backup: $BACKUP_PATH)"
+    fi
+  else
+    note "· added $BINDING"
+    note "  (backup: $BACKUP_PATH; Hyprland picks it up on the next config reload)"
+  fi
+else
+  case $KEYBINDING_PLAN in
+    present) note "· already configured" ;;
+    no-file) note "· skipped: $BINDINGS_PATH does not exist" ;;
+    skip-requested) note "· skipped (--skip-keybinding)" ;;
+    skip-declined) note "· skipped at your request; run omarchy-news-setup again to be asked again" ;;
+    skip-no-terminal) note "· skipped: no terminal to ask. Pass --yes to accept it, or --skip-keybinding to silence this." ;;
+  esac
+fi
+
+phase 3 "Checking the service"
+SERVICE_STATUS=""
+for (( attempt = 0; attempt < 40; attempt++ )); do
+  SERVICE_STATUS=$(omarchy-shell "$PLUGIN_ID" status 2>>"$LOG_PATH" || true)
+  if jq -e '.state? // empty | . != "loading"' <<<"$SERVICE_STATUS" >/dev/null 2>&1; then
+    break
+  fi
+  SERVICE_STATUS=""
+  sleep 0.25
+done
+if [[ -n $SERVICE_STATUS ]]; then
+  note "· $(jq -r '"state \(.state), \(.posts // 0) posts, \(.unread // 0) unread"' <<<"$SERVICE_STATUS")"
+else
+  note "· no answer from the service yet"
+fi
+
+# ------------------------------------------------------------------ Receipt
+
+EXIT_CODE=0
+echo
+rule
+printf '%sOmarchy News is ready.%s\n' "$BOLD" "$RESET"
+if [[ -n $SERVICE_STATUS ]]; then
+  service_state=$(jq -r '.state // "unknown"' <<<"$SERVICE_STATUS")
+  service_summary=$(jq -r '"\(.posts // 0) posts, \(.unread // 0) unread"' <<<"$SERVICE_STATUS")
+  if [[ $service_state == "error" ]]; then
+    printf '  %s Service: could not reach omarchy.org yet (%s). It retries on its own.\n' "$WARN" "$service_summary"
+  else
+    printf '  %s Service: %s, %s\n' "$OK" "$service_state" "$service_summary"
+  fi
+else
+  printf '  %s Service self-check failed. See %s and try: omarchy-shell %s status\n' "$WARN" "$LOG_PATH" "$PLUGIN_ID"
+  EXIT_CODE=1
+fi
+case $KEYBINDING_RESULT:$KEYBINDING_PLAN in
+  applied:*)     printf '  %s Keybinding: %s (backup: %s)\n' "$OK" "$KEY" "$BACKUP_PATH" ;;
+  rolled-back:*) printf '  %s Keybinding: not added; %s restored from %s\n' "$BAD" "$BINDINGS_PATH" "$BACKUP_PATH"; EXIT_CODE=1 ;;
+  :present)      printf '  %s Keybinding: already in %s\n' "$OK" "$BINDINGS_PATH" ;;
+  *)             printf '  · Keybinding: none. Add it later with omarchy-news-setup, or paste into %s:\n      %s\n' "$BINDINGS_PATH" "$BINDING" ;;
+esac
+note "· Settings: omarchy bar set $PLUGIN_ID refreshMinutes 15   (also: notify, maxPosts)"
+note "· Log: $LOG_PATH"
+echo
+if [[ $EXIT_CODE == 0 ]]; then
+  printf '🎉 %sThat'"'"'s everything — new Omarchy posts now land in your bar.%s\n' "$BOLD" "$RESET"
+  echo
+  if [[ $KEYBINDING_RESULT == "applied" || $KEYBINDING_PLAN == "present" ]]; then
+    printf '%sNext:%s press %s, or click the news glyph in the bar.\n' "$BOLD" "$RESET" "$KEY"
+  else
+    printf '%sNext:%s click the news glyph in the bar. Press j and k to move, Enter to read.\n' "$BOLD" "$RESET"
+  fi
+fi
+exit "$EXIT_CODE"

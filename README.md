@@ -19,17 +19,26 @@ Omarchy News watches the official `omarchy.org/news` feed. It adds an unseen-pos
 
 ```bash
 omarchy plugin add https://github.com/eliasstravik/omarchy-news --enable
+~/.config/omarchy/plugins/io.github.eliasstravik.omarchy-news/bin/omarchy-news-setup
 ```
 
-The command enables both the service and the bar widget. No second enable step is required.
+The first command installs and enables both the service and the bar widget. Nothing else is required: the news glyph appears in the bar right away.
+
+The second command is optional. Omarchy's installer never runs plugin code, so the setup script is where Omarchy News asks its one question: whether to add the `Super+Alt+N` keybinding. It shows the exact line, asks first, backs up `~/.config/hypr/bindings.lua` with a timestamp, validates the result with `hyprctl configerrors`, and restores the backup if Hyprland rejects it. It then checks that the service answers and prints a receipt. It never elevates privileges, never downloads anything, and never writes the binding without a typed yes.
+
+For unattended runs, `omarchy-news-setup --yes` accepts the keybinding and `omarchy-news-setup --skip-keybinding` leaves `bindings.lua` alone.
+
+Setup uses only `omarchy`, `omarchy-shell`, and `jq`, which ship with Omarchy, plus `hyprctl` when run inside a Hyprland session to check that the key is free and that the config still loads.
 
 ## Keybinding
 
-Add this to `~/.config/hypr/bindings.lua`:
+Setup offers this line for `~/.config/hypr/bindings.lua`. Paste it yourself if you skipped setup:
 
 ```lua
-o.bind("SUPER + CTRL + N", "Omarchy News", "omarchy-shell shell toggle io.github.eliasstravik.omarchy-news")
+o.bind("SUPER + ALT + N", "Omarchy News", "omarchy-shell shell toggle io.github.eliasstravik.omarchy-news")
 ```
+
+`Super+Alt+N` is free in the stock Omarchy bindings. `Super+Ctrl+N` and `Super+Shift+N` are not: they toggle the night light and open the editor.
 
 ## Controls
 
@@ -114,7 +123,9 @@ omarchy plugin remove io.github.eliasstravik.omarchy-news --yes
 rm -rf ~/.cache/omarchy-news ~/.local/state/omarchy-news
 ```
 
-The first command removes the plugin. The second removes its feed cache, cached images, and local read history.
+The first command removes the plugin. The second removes its feed cache, cached images, local read history, and the setup log.
+
+If you accepted the keybinding, delete the `Omarchy News` line from `~/.config/hypr/bindings.lua`, or restore the timestamped `bindings.lua.*.bak` backup that setup made next to it. Setup never changed anything else.
 
 ## Reader and light theme
 
@@ -132,6 +143,8 @@ Run the portable parser, state, manifest, and source checks on any machine with 
 node --test tests/*.test.mjs
 bash tests/qml-source-test.sh
 ```
+
+The setup script is covered by `tests/setup.test.mjs`, which runs it against stub `omarchy`, `omarchy-shell`, and `hyprctl` commands in a throwaway home directory.
 
 Run the Omarchy-specific checks on an Omarchy machine:
 
